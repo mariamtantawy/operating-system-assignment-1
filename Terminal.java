@@ -1,4 +1,5 @@
 import java.util.*;
+import java.io.File;
 
 class Parser {
     private String commandName;
@@ -30,32 +31,116 @@ class Parser {
 
 public class Terminal {
     private Parser parser;
-
+    private File currentDirectory = new File(System.getProperty("user.dir"));
 
     public Terminal() {
         parser = new Parser();
     }
 
     public String pwd() {
-        return "pwd";
+        return currentDirectory.getAbsolutePath();
     }
 
     public String cd(String[] args) {
-        return "cd";
+        String path = (args.length > 0) ? args[0] : "";
+        if (path.isEmpty()) {
+            currentDirectory = new File(System.getProperty("user.home"));
+            return "Changed to home directory";
+        } else if (path.equals("..")) {
+            File parent = currentDirectory.getParentFile();
+            if (parent != null) {
+                currentDirectory = parent;
+                return "Moved to parent directory";
+            } else {
+                return "Already at root directory";
+            }
+        } else {
+            File newDir = new File(path);
+            if (!newDir.isAbsolute()) {
+                newDir = new File(currentDirectory, path);
+            }
+
+            if (newDir.exists() && newDir.isDirectory()) {
+                currentDirectory = newDir;
+                return "Changed directory to: " + currentDirectory.getAbsolutePath();
+            } else {
+                return "cd: invalid path";
+            }
+        }
     }
 
     public String ls(String[] args) {
-        return "ls";
+        File[] files = currentDirectory.listFiles();
+        if (files == null) {
+            return "ls: cannot access directory";
+        }
+        Arrays.sort(files);
+        StringBuilder result = new StringBuilder();
+        for (File file : files) {
+            result.append(file.getName()).append("\n");
+        }
+        return result.toString().trim();
     }
 
     public String mkdir(String[] args) {
-        return "mkdir";
+        if (args.length == 0) return "mkdir: missing argument";
+    
+        StringBuilder result = new StringBuilder();
+        for (String path : args) {
+            File dir = new File(path);
+            if (!dir.isAbsolute()) dir = new File(currentDirectory, path);
+            if (dir.exists()) {
+                result.append("Directory already exists: ").append(dir.getName()).append("\n");
+            } else if (dir.mkdirs()) {
+                result.append("Directory created: ").append(dir.getAbsolutePath()).append("\n");
+            } else {
+                result.append("mkdir: failed to create ").append(dir.getAbsolutePath()).append("\n");
+            }
+        }
+        return result.toString().trim();
     }
 
     public String rmdir(String[] args) {
-        return "rmdir";
+        if (args.length == 0) {
+            return "rmdir: missing argument";
+        }
+    
+        String path = args[0];
+        StringBuilder result = new StringBuilder();
+    
+        if (path.equals("*")) {
+            File[] dirs = currentDirectory.listFiles(File::isDirectory);
+            if (dirs != null) {
+                for (File d : dirs) {
+                    if (d.list().length == 0) {
+                        d.delete();
+                        result.append("Deleted empty directory: ").append(d.getName()).append("\n");
+                    }
+                }
+                if (result.length() == 0) {
+                    result.append("No empty directories found to delete.");
+                }
+            } else {
+                result.append("Error: could not access current directory.");
+            }
+        } else {
+            File dir = new File(path);
+            if (!dir.isAbsolute()) dir = new File(currentDirectory, path);
+    
+            if (dir.exists() && dir.isDirectory()) {
+                if (dir.list().length == 0) {
+                    dir.delete();
+                    result.append("Deleted directory: ").append(dir.getAbsolutePath());
+                } else {
+                    result.append("Error: directory not empty.");
+                }
+            } else {
+                result.append("Error: directory not found.");
+            }
+        }
+    
+        return result.toString().trim();
     }
-
     public String touch(String[] args) {
         return "touch";
     }
@@ -86,34 +171,20 @@ public class Terminal {
 
     public String chooseCommandAction(String commandName, String[] args) {
         switch (commandName) {
-            case "pwd":
-                return pwd();
-            case "cd":
-                return cd(args);
-            case "ls":
-                return ls(args);
-            case "mkdir":
-                return mkdir(args);
-            case "rmdir":
-                return rmdir(args);
-            case "touch":
-                return touch(args);
-            case "cp":
-                return cp(args);
-            case "rm":
-                return rm(args);
-            case "cat":
-                return cat(args);
-            case "wc":
-                return wc(args);
-            case "zip":
-                return zip(args);
-            case "unzip":
-                return unzip(args);
-            case "exit":
-                return null; 
-            default:
-                return "Unknown command: " + commandName;
+            case "pwd": return pwd();
+            case "cd": return cd(args);
+            case "ls": return ls(args);
+            case "mkdir": return mkdir(args);
+            case "rmdir": return rmdir(args);
+            case "touch": return touch(args);
+            case "cp": return cp(args);
+            case "rm": return rm(args);
+            case "cat": return cat(args);
+            case "wc": return wc(args);
+            case "zip": return zip(args);
+            case "unzip": return unzip(args);
+            case "exit": return null;
+            default: return "Unknown command: " + commandName;
         }
     }
 
