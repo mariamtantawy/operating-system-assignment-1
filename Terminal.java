@@ -1,16 +1,20 @@
-import java.util.*;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.*;
 
 class Parser {
     private String commandName;
     private String[] args;
-    
+
     public boolean parse(String input) {
-        if (input == null || input.trim().isEmpty()) return false;
+        if (input == null || input.trim().isEmpty())
+            return false;
 
         Scanner scanner = new Scanner(input);
         commandName = scanner.next();
-        
+
         List<String> argsList = new ArrayList<>();
         while (scanner.hasNext()) {
             argsList.add(scanner.next());
@@ -83,12 +87,14 @@ public class Terminal {
     }
 
     public String mkdir(String[] args) {
-        if (args.length == 0) return "mkdir: missing argument";
-    
+        if (args.length == 0)
+            return "mkdir: missing argument";
+
         StringBuilder result = new StringBuilder();
         for (String path : args) {
             File dir = new File(path);
-            if (!dir.isAbsolute()) dir = new File(currentDirectory, path);
+            if (!dir.isAbsolute())
+                dir = new File(currentDirectory, path);
             if (dir.exists()) {
                 result.append("Directory already exists: ").append(dir.getName()).append("\n");
             } else if (dir.mkdirs()) {
@@ -104,10 +110,10 @@ public class Terminal {
         if (args.length == 0) {
             return "rmdir: missing argument";
         }
-    
+
         String path = args[0];
         StringBuilder result = new StringBuilder();
-    
+
         if (path.equals("*")) {
             File[] dirs = currentDirectory.listFiles(File::isDirectory);
             if (dirs != null) {
@@ -125,8 +131,9 @@ public class Terminal {
             }
         } else {
             File dir = new File(path);
-            if (!dir.isAbsolute()) dir = new File(currentDirectory, path);
-    
+            if (!dir.isAbsolute())
+                dir = new File(currentDirectory, path);
+
             if (dir.exists() && dir.isDirectory()) {
                 if (dir.list().length == 0) {
                     dir.delete();
@@ -138,26 +145,92 @@ public class Terminal {
                 result.append("Error: directory not found.");
             }
         }
-    
+
         return result.toString().trim();
     }
+
     public String touch(String[] args) {
-        return "touch";
+        if (args.length == 0) {
+            return "You must specify directory";
+        }
+        File file = new File(args[0]);
+        try {
+            if (file.createNewFile()) {
+                return "File " + args[0] + " created successfully";
+
+            } else {
+                return "File already exists";
+            }
+
+        } catch (IOException e) {
+            return "Error creating file: " + e.getMessage();
+        }
     }
+
     public String cp(String[] args) {
         return "cp";
     }
 
     public String rm(String[] args) {
-        return "rm";
+        if (args.length == 0) {
+            return "You must specifiy directory";
+        }
+        File file = new File(args[0]);
+        try {
+            if (file.exists()) {
+                file.delete();
+                return "File " + "'" + args[0] + "'" + "deleted successfully";
+            } else {
+                return "There isn't this file";
+            }
+        } catch (Exception e) {
+            return "Error Delete file: " + e.getMessage();
+        }
     }
 
     public String cat(String[] args) {
-        return "cat";
+        if (args.length == 0) {
+            return "you must specify Directory";
+        }
+        String line = null;
+
+        for (int i = 0; i < args.length; i++) {
+
+            try (BufferedReader reader = new BufferedReader(new FileReader(args[i]))) {
+                while ((line = reader.readLine()) != null) {
+                    System.out.println(line);
+                }
+
+            } catch (IOException e) {
+                return "Error: " + e.getMessage();
+            }
+        }
+
+        return line;
+
     }
 
     public String wc(String[] args) {
-        return "wc";
+        int lines = 0;
+        int wordsCount = 0;
+        int characters = 0;
+        String line;
+        try (BufferedReader reader = new BufferedReader(new FileReader(args[0]))) {
+            while ((line = reader.readLine()) != null) {
+                lines++;
+                String words[] = line.split(" ");
+                wordsCount += words.length;
+                for (String word : words) {
+                    characters += word.length();
+                }
+
+            }
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+
+        return Integer.toString(lines) + " " + Integer.toString(wordsCount) + " " + Integer.toString(characters) + " "
+                + args[0];
     }
 
     public String zip(String[] args) {
@@ -168,46 +241,57 @@ public class Terminal {
         return "unzip";
     }
 
-
     public String chooseCommandAction(String commandName, String[] args) {
         switch (commandName) {
-            case "pwd": return pwd();
-            case "cd": return cd(args);
-            case "ls": return ls(args);
-            case "mkdir": return mkdir(args);
-            case "rmdir": return rmdir(args);
-            case "touch": return touch(args);
-            case "cp": return cp(args);
-            case "rm": return rm(args);
-            case "cat": return cat(args);
-            case "wc": return wc(args);
-            case "zip": return zip(args);
-            case "unzip": return unzip(args);
-            case "exit": return null;
-            default: return "Unknown command: " + commandName;
+            case "pwd":
+                return pwd();
+            case "cd":
+                return cd(args);
+            case "ls":
+                return ls(args);
+            case "mkdir":
+                return mkdir(args);
+            case "rmdir":
+                return rmdir(args);
+            case "touch":
+                return touch(args);
+            case "cp":
+                return cp(args);
+            case "rm":
+                return rm(args);
+            case "cat":
+                return cat(args);
+            case "wc":
+                return wc(args);
+            case "zip":
+                return zip(args);
+            case "unzip":
+                return unzip(args);
+            case "exit":
+                return null;
+            default:
+                return "Unknown command: " + commandName;
         }
     }
-
-
 
     public void run() {
         Scanner sc = new Scanner(System.in);
 
         while (true) {
-            System.out.print("> "); 
+            System.out.print("> ");
             String input = sc.nextLine();
 
             if (!parser.parse(input)) {
-                continue; 
+                continue;
             }
 
             String command = parser.getCommandName();
             String[] args = parser.getArgs();
 
             if (command.equals("exit")) {
-                break; 
+                break;
             }
-            
+
             String output = chooseCommandAction(command, args);
             if (output != null && !output.isEmpty()) {
                 System.out.println(output);
@@ -216,7 +300,6 @@ public class Terminal {
         sc.close();
     }
 
-
     public static void main(String[] args) {
         Terminal t = new Terminal();
         System.out.println("Type 'exit' to quit.");
@@ -224,4 +307,3 @@ public class Terminal {
         System.out.println("Program exited.");
     }
 }
-
