@@ -211,6 +211,9 @@ private void zipFolder(File folder, String basePath, ZipOutputStream stream) thr
             return "You must specify directory";
         }
         File file = new File(args[0]);
+        if (!file.isAbsolute()) {
+            file = new File(currentDirectory, args[0]);  // ✅ Use current directory
+        }
         try {
             if (file.createNewFile()) {
                 return "File " + args[0] + " created successfully";
