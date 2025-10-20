@@ -1,8 +1,16 @@
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.nio.file.Files;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
+import java.util.zip.ZipOutputStream;
+import java.io.FileInputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+
 
 class Parser {
     private String commandName;
@@ -36,6 +44,55 @@ class Parser {
 public class Terminal {
     private Parser parser;
     private File currentDirectory = new File(System.getProperty("user.dir"));
+
+    private void copyFile (File src, File dest) throws IOException {
+        Files.copy(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    private void copyDir (File srcDir, File destDir) throws IOException {
+        if (!destDir.exists()) {
+            destDir.mkdirs();
+        }
+        for (File file : Objects.requireNonNull(srcDir.listFiles())) {
+            File newFile = new File(destDir, file.getName());
+            if (file.isDirectory()) {
+                copyDir(file, newFile);
+            } else {
+                copyFile(file, newFile);
+            }
+        }
+    }
+
+    private void zipFile(File file, String entryPath, ZipOutputStream stream) throws IOException {
+        try (FileInputStream input = new FileInputStream(file)) {
+            ZipEntry entry = new ZipEntry(entryPath);
+            stream.putNextEntry(entry);
+
+            byte[] buffer = new byte[4096];
+            int bytesRead;
+            while ((bytesRead = input.read(buffer)) != -1) {
+                stream.write(buffer, 0, bytesRead);
+            }
+            stream.closeEntry();
+        }
+    }
+
+private void zipFolder(File folder, String basePath, ZipOutputStream stream) throws IOException {
+    File[] files = folder.listFiles();
+    if (files == null) {
+        return;
+    }
+
+    for (File file : files) {
+        String entryPath = basePath + "/" + file.getName();
+        if (file.isDirectory()) {
+            zipFolder(file, entryPath, stream);
+        } else {
+            zipFile(file, entryPath, stream);
+        }
+    }
+}
+
 
     public Terminal() {
         parser = new Parser();
@@ -168,7 +225,48 @@ public class Terminal {
     }
 
     public String cp(String[] args) {
-        return "cp";
+        if (args.length < 2) {
+            return "Invalid command. Usage: cp [-r] source target";
+        }
+        boolean recursive;
+        int index;
+        if (args[0].equals("-r")) {
+            recursive = true;
+            index = 1;
+        } else {
+            recursive = false;
+            index = 0;
+        }
+
+        File source = new File (args[index]);
+        File destination = new File (args[index+1]);
+
+        if (!source.isAbsolute()) {
+            source = new File (currentDirectory, args[index]);
+        }
+        
+        if (!destination.isAbsolute()) {
+            destination = new File (currentDirectory, args[index+1]);
+        }
+        if (!source.exists()) {
+            return "Error: source not found";
+        }
+
+        try {
+            if (source.isDirectory()) {
+                if (!recursive) {
+                    return "Use -r for directories";
+                }
+                copyDir(source, destination);
+            }
+            else {
+                copyFile(source, destination);
+            }
+        }
+        catch (IOException e) {
+            return "Copy failed: " + e.getMessage();
+        }
+        return "Copied " + source.getName() + " to " + destination.getPath(); 
     }
 
     public String rm(String[] args) {
@@ -234,11 +332,111 @@ public class Terminal {
     }
 
     public String zip(String[] args) {
-        return "zip";
+        if (args.length < 2) {
+            return "Invalid command. Usage: zip [-r] <output.zip> <file1> [file2 ...]";
+        }
+        boolean recursive = false;
+        String fileName;
+        int index;
+
+        if (args[0].equals("-r")) {
+            recursive = true;
+            if (args.length < 3) {
+                return "Error: missing file or directory after -r option.";
+            }
+            fileName = args[1];
+            index = 2;
+        } else {
+            fileName = args[0];
+            index = 1;
+        }
+
+        File zippedFile = new File(fileName);
+        if (!zippedFile.isAbsolute()) {
+            zippedFile = new File(currentDirectory, fileName);
+        }
+
+        try (ZipOutputStream stream = new ZipOutputStream(new FileOutputStream(zippedFile))) {
+
+        for (int i = index; i < args.length; i++) {
+            File source = new File(args[i]);
+            if (!source.isAbsolute()) {
+                source = new File(currentDirectory, args[i]);
+            }
+
+            if (!source.exists()) {
+                return "Error: file or directory not found - " + args[i];
+            }
+
+            if (source.isDirectory()) {
+                if (!recursive) {
+                    return "Error: " + args[i] + " is a directory. Use -r for recursive zipping.";
+                }
+                zipFolder(source, source.getName(), stream);
+            } else {
+                zipFile(source, source.getName(), stream);
+            }
+        }
+
+         return "Archive successfully created at: " + zippedFile.getAbsolutePath();
+
+        } catch (IOException e) {
+            return "Failed to create zip file: " + e.getMessage();
+        }
     }
 
+
     public String unzip(String[] args) {
-        return "unzip";
+        if (args.length == 0) {
+            return "Invalid command. Usage: unzip <archive.zip> [-d <destinationFolder>]";
+        }
+
+        File archive = new File(args[0]);
+        if (!archive.isAbsolute()) {
+            archive = new File(currentDirectory, args[0]);
+        }
+
+        File destDir = currentDirectory;
+
+        if (args.length >= 2 && args[1].equals("-d")) {
+            if (args.length < 3) {
+                return "Error: destination folder missing after -d.";
+            }
+            destDir = new File(args[2]);
+            if (!destDir.isAbsolute()) {
+                destDir = new File(currentDirectory, args[2]);
+            }
+            if (!destDir.exists()) {
+                destDir.mkdirs();
+            }
+        }
+
+        try (ZipInputStream zipInput = new ZipInputStream(new FileInputStream(archive))) {
+            ZipEntry entry;
+            byte[] buffer = new byte[4096];
+
+            while ((entry = zipInput.getNextEntry()) != null) {
+                File extractedFile = new File(destDir, entry.getName());
+
+                if (entry.isDirectory()) {
+                    extractedFile.mkdirs();
+                } else {
+                    extractedFile.getParentFile().mkdirs();
+                    try (FileOutputStream output = new FileOutputStream(extractedFile)) {
+                        int count;
+                        while ((count = zipInput.read(buffer)) != -1) {
+                            output.write(buffer, 0, count);
+                        }
+                    }
+                }
+                zipInput.closeEntry();
+            }
+
+            return "Archive extracted to: " + destDir.getAbsolutePath();
+
+        } catch (IOException e) {
+            return "Error while extracting archive: " + e.getMessage();
+        }
     }
 
     public String chooseCommandAction(String commandName, String[] args) {
