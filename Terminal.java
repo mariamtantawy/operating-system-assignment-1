@@ -212,7 +212,7 @@ private void zipFolder(File folder, String basePath, ZipOutputStream stream) thr
         }
         File file = new File(args[0]);
         if (!file.isAbsolute()) {
-            file = new File(currentDirectory, args[0]);  // ✅ Use current directory
+            file = new File(currentDirectory, args[0]); 
         }
         try {
             if (file.createNewFile()) {
