@@ -125,9 +125,17 @@ public class Terminal {
         parser = new Parser();
     }
 
-    public String pwd() {
-        return currentDirectory.getAbsolutePath();
+public String pwd(String[] args) {
+    if (args.length > 0) {
+        return "Error: too many arguments for pwd";
     }
+
+    if (currentDirectory == null) {
+        currentDirectory = new File(System.getProperty("user.dir"));
+    }
+
+    return currentDirectory.getAbsolutePath();
+}
 
     public String cd(String[] args) {
         String path = (args.length > 0) ? args[0] : "";
@@ -221,15 +229,19 @@ public class Terminal {
                 dir = new File(currentDirectory, path);
             }
 
-            if (dir.exists() && dir.isDirectory()) {
-                if (dir.list().length == 0) {
-                    dir.delete();
-                    result.append("Deleted directory: ").append(dir.getAbsolutePath());
-                } else {
-                    result.append("Error: directory not empty.");
-                }
-            } else {
+            if (!dir.exists() || !dir.isDirectory()) {
                 result.append("Error: directory not found.");
+            } else {
+                File[] contents = dir.listFiles();
+                if (contents != null && contents.length > 0) {
+                    result.append("Error: directory not empty.");
+                } else {
+                    if (dir.delete()) {
+                        result.append("Deleted directory: ").append(dir.getAbsolutePath());
+                    } else {
+                        result.append("Error: could not delete directory.");
+                    }
+                }
             }
         }
 
@@ -488,7 +500,7 @@ public class Terminal {
     public String chooseCommandAction(String commandName, String[] args) {
         switch (commandName) {
             case "pwd":
-                return pwd();
+                return pwd(args);
             case "cd":
                 return cd(args);
             case "ls":
