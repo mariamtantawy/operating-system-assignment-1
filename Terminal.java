@@ -1,24 +1,26 @@
+
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.nio.file.Files;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
-import java.util.zip.ZipOutputStream;
-import java.io.FileInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-
+import java.util.zip.ZipOutputStream;
 
 class Parser {
+
     private String commandName;
     private String[] args;
 
     public boolean parse(String input) {
-        if (input == null || input.trim().isEmpty())
+        if (input == null || input.trim().isEmpty()) {
             return false;
+        }
 
         Scanner scanner = new Scanner(input);
         commandName = scanner.next();
@@ -42,14 +44,15 @@ class Parser {
 }
 
 public class Terminal {
+
     private Parser parser;
     private File currentDirectory = new File(System.getProperty("user.dir"));
 
-    private void copyFile (File src, File dest) throws IOException {
+    private void copyFile(File src, File dest) throws IOException {
         Files.copy(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
     }
 
-    private void copyDir (File srcDir, File destDir) throws IOException {
+    private void copyDir(File srcDir, File destDir) throws IOException {
         if (!destDir.exists()) {
             destDir.mkdirs();
         }
@@ -61,6 +64,31 @@ public class Terminal {
                 copyFile(file, newFile);
             }
         }
+    }
+
+    private void redirection(String cmd, File filename, String[] arg, String Type) {
+
+        String output = chooseCommandAction(cmd, arg);
+        if (output == null) {
+            return;
+        }
+        if (Type.equals(">>")) {
+            try (FileOutputStream fos = new FileOutputStream(filename, true)) {
+                fos.write(output.getBytes());
+            } catch (IOException e) {
+                System.out.println("Error redirecting output: " + e.getMessage());
+                return;
+            }
+        } else if (Type.equals(">")) {
+            try (FileOutputStream fos = new FileOutputStream(filename)) {
+                fos.write(output.getBytes());
+            } catch (IOException e) {
+                System.out.println("Error redirecting output: " + e.getMessage());
+                return;
+            }
+        }
+        System.out.println("Output redirected to: " + filename.getName());
+
     }
 
     private void zipFile(File file, String entryPath, ZipOutputStream stream) throws IOException {
@@ -77,22 +105,21 @@ public class Terminal {
         }
     }
 
-private void zipFolder(File folder, String basePath, ZipOutputStream stream) throws IOException {
-    File[] files = folder.listFiles();
-    if (files == null) {
-        return;
-    }
+    private void zipFolder(File folder, String basePath, ZipOutputStream stream) throws IOException {
+        File[] files = folder.listFiles();
+        if (files == null) {
+            return;
+        }
 
-    for (File file : files) {
-        String entryPath = basePath + "/" + file.getName();
-        if (file.isDirectory()) {
-            zipFolder(file, entryPath, stream);
-        } else {
-            zipFile(file, entryPath, stream);
+        for (File file : files) {
+            String entryPath = basePath + "/" + file.getName();
+            if (file.isDirectory()) {
+                zipFolder(file, entryPath, stream);
+            } else {
+                zipFile(file, entryPath, stream);
+            }
         }
     }
-}
-
 
     public Terminal() {
         parser = new Parser();
@@ -144,14 +171,16 @@ private void zipFolder(File folder, String basePath, ZipOutputStream stream) thr
     }
 
     public String mkdir(String[] args) {
-        if (args.length == 0)
+        if (args.length == 0) {
             return "mkdir: missing argument";
+        }
 
         StringBuilder result = new StringBuilder();
         for (String path : args) {
             File dir = new File(path);
-            if (!dir.isAbsolute())
+            if (!dir.isAbsolute()) {
                 dir = new File(currentDirectory, path);
+            }
             if (dir.exists()) {
                 result.append("Directory already exists: ").append(dir.getName()).append("\n");
             } else if (dir.mkdirs()) {
@@ -188,8 +217,9 @@ private void zipFolder(File folder, String basePath, ZipOutputStream stream) thr
             }
         } else {
             File dir = new File(path);
-            if (!dir.isAbsolute())
+            if (!dir.isAbsolute()) {
                 dir = new File(currentDirectory, path);
+            }
 
             if (dir.exists() && dir.isDirectory()) {
                 if (dir.list().length == 0) {
@@ -212,7 +242,7 @@ private void zipFolder(File folder, String basePath, ZipOutputStream stream) thr
         }
         File file = new File(args[0]);
         if (!file.isAbsolute()) {
-            file = new File(currentDirectory, args[0]); 
+            file = new File(currentDirectory, args[0]);
         }
         try {
             if (file.createNewFile()) {
@@ -241,15 +271,15 @@ private void zipFolder(File folder, String basePath, ZipOutputStream stream) thr
             index = 0;
         }
 
-        File source = new File (args[index]);
-        File destination = new File (args[index+1]);
+        File source = new File(args[index]);
+        File destination = new File(args[index + 1]);
 
         if (!source.isAbsolute()) {
-            source = new File (currentDirectory, args[index]);
+            source = new File(currentDirectory, args[index]);
         }
-        
+
         if (!destination.isAbsolute()) {
-            destination = new File (currentDirectory, args[index+1]);
+            destination = new File(currentDirectory, args[index + 1]);
         }
         if (!source.exists()) {
             return "Error: source not found";
@@ -261,15 +291,13 @@ private void zipFolder(File folder, String basePath, ZipOutputStream stream) thr
                     return "Use -r for directories";
                 }
                 copyDir(source, destination);
-            }
-            else {
+            } else {
                 copyFile(source, destination);
             }
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             return "Copy failed: " + e.getMessage();
         }
-        return "Copied " + source.getName() + " to " + destination.getPath(); 
+        return "Copied " + source.getName() + " to " + destination.getPath();
     }
 
     public String rm(String[] args) {
@@ -361,33 +389,32 @@ private void zipFolder(File folder, String basePath, ZipOutputStream stream) thr
 
         try (ZipOutputStream stream = new ZipOutputStream(new FileOutputStream(zippedFile))) {
 
-        for (int i = index; i < args.length; i++) {
-            File source = new File(args[i]);
-            if (!source.isAbsolute()) {
-                source = new File(currentDirectory, args[i]);
-            }
-
-            if (!source.exists()) {
-                return "Error: file or directory not found - " + args[i];
-            }
-
-            if (source.isDirectory()) {
-                if (!recursive) {
-                    return "Error: " + args[i] + " is a directory. Use -r for recursive zipping.";
+            for (int i = index; i < args.length; i++) {
+                File source = new File(args[i]);
+                if (!source.isAbsolute()) {
+                    source = new File(currentDirectory, args[i]);
                 }
-                zipFolder(source, source.getName(), stream);
-            } else {
-                zipFile(source, source.getName(), stream);
-            }
-        }
 
-         return "Archive successfully created at: " + zippedFile.getAbsolutePath();
+                if (!source.exists()) {
+                    return "Error: file or directory not found - " + args[i];
+                }
+
+                if (source.isDirectory()) {
+                    if (!recursive) {
+                        return "Error: " + args[i] + " is a directory. Use -r for recursive zipping.";
+                    }
+                    zipFolder(source, source.getName(), stream);
+                } else {
+                    zipFile(source, source.getName(), stream);
+                }
+            }
+
+            return "Archive successfully created at: " + zippedFile.getAbsolutePath();
 
         } catch (IOException e) {
             return "Failed to create zip file: " + e.getMessage();
         }
     }
-
 
     public String unzip(String[] args) {
         if (args.length == 0) {
@@ -442,6 +469,22 @@ private void zipFolder(File folder, String basePath, ZipOutputStream stream) thr
         }
     }
 
+    public String echo(String[] args) {
+
+        StringBuilder arg = new StringBuilder();
+
+        for (int i = 0; i < args.length; i++) {
+            arg.append(args[i]);
+            if (i < args.length - 1) {
+                arg.append(" ");
+            }
+        }
+
+        arg.append("\n");
+
+        return arg.toString();
+    }
+
     public String chooseCommandAction(String commandName, String[] args) {
         switch (commandName) {
             case "pwd":
@@ -468,6 +511,8 @@ private void zipFolder(File folder, String basePath, ZipOutputStream stream) thr
                 return zip(args);
             case "unzip":
                 return unzip(args);
+            case "echo":
+                return echo(args);
             case "exit":
                 return null;
             default:
@@ -492,11 +537,32 @@ private void zipFolder(File folder, String basePath, ZipOutputStream stream) thr
             if (command.equals("exit")) {
                 break;
             }
-
-            String output = chooseCommandAction(command, args);
-            if (output != null && !output.isEmpty()) {
-                System.out.println(output);
+            List<String> argsList = new ArrayList<>(Arrays.asList(args));
+            int redirectIndex = -1;
+            String redirectType = null;
+            if (argsList.contains(">>")) {
+                redirectIndex = argsList.indexOf(">>");
+                redirectType = ">>";
+            } else if (argsList.contains(">")) {
+                redirectIndex = argsList.indexOf(">");
+                redirectType = ">";
             }
+
+            if (redirectIndex != -1) {
+                String[] cmdarg = argsList.subList(0, redirectIndex).toArray(new String[0]);
+                if (redirectIndex + 1 < argsList.size()) {
+                    String fileName = argsList.get(redirectIndex + 1);
+                    redirection(command, new File(currentDirectory, fileName), cmdarg, redirectType);
+                } else {
+                    System.out.println("Syntax error: missing file name after '" + redirectType + "' ");
+                }
+            } else {
+                String output = chooseCommandAction(command, args);
+                if (output != null && !output.isEmpty()) {
+                    System.out.println(output);
+                }
+            }
+
         }
         sc.close();
     }
