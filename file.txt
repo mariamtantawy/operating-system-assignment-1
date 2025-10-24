@@ -1,5 +1,11 @@
 .git
+dir1
+dir2
+echotrial.txt
+file.txt
 Parser.class
 README.md
+tempCodeRunnerFile.java
 Terminal.class
 Terminal.java
+trial.txt

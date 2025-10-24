@@ -317,6 +317,9 @@ public String pwd(String[] args) {
             return "You must specifiy directory";
         }
         File file = new File(args[0]);
+        if (!file.isAbsolute()) {
+            file = new File(currentDirectory,args[0]);
+        }
         try {
             if (file.exists()) {
                 file.delete();
@@ -336,8 +339,11 @@ public String pwd(String[] args) {
         String line = null;
 
         for (int i = 0; i < args.length; i++) {
-
-            try (BufferedReader reader = new BufferedReader(new FileReader(args[i]))) {
+            File file = new File((args[i]));
+            if (!file.isAbsolute()) {
+                file = new File(currentDirectory , args[i]);
+            }
+            try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
                 while ((line = reader.readLine()) != null) {
                     System.out.println(line);
                 }
@@ -356,7 +362,11 @@ public String pwd(String[] args) {
         int wordsCount = 0;
         int characters = 0;
         String line;
-        try (BufferedReader reader = new BufferedReader(new FileReader(args[0]))) {
+        File file = new File(args[0]);
+        if (!file.isAbsolute()) {
+            file = new File(currentDirectory, args[0]);
+        }
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             while ((line = reader.readLine()) != null) {
                 lines++;
                 String words[] = line.split(" ");
